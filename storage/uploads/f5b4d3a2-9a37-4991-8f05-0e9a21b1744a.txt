@@ -1,0 +1,43 @@
+# Finance Department Handbook
+
+## Overview
+
+ฝ่ายการเงินรับผิดชอบด้านงบประมาณ การจ่ายเงิน การเบิกค่าใช้จ่าย และการควบคุมทางการเงิน
+
+## Expense Reimbursement
+
+การเบิกค่าใช้จ่าย
+
+เอกสารที่ต้องใช้
+
+* ใบเสร็จตัวจริง
+* แบบฟอร์มเบิกค่าใช้จ่าย
+* การอนุมัติจากหัวหน้างาน
+
+## Reimbursement Timeline
+
+ระยะเวลาดำเนินการ
+
+* ภายใน 7 วันทำการหลังได้รับเอกสารครบถ้วน
+
+## Business Travel Expense
+
+ค่าใช้จ่ายที่สามารถเบิกได้
+
+* ค่าเดินทาง
+* ค่าที่พัก
+* ค่าอาหารตามนโยบายบริษัท
+
+## Budget Approval
+
+วงเงินไม่เกิน 50,000 บาท
+
+* อนุมัติโดย Department Manager
+
+วงเงินมากกว่า 50,000 บาท
+
+* อนุมัติโดย Finance Director
+
+## Contact
+
+Email: [finance@company.local](mailto:finance@company.local)

@@ -1,0 +1,257 @@
+================================================================================
+POST-MORTEM ERROR REPORT — Development Session 2026-06-11
+KB Assistant System — Backend & Testing Pipeline
+Clearance Level: PERMANENT_STAFF
+Severity: MEDIUM
+Author: System Development Team
+================================================================================
+
+------------------------------------------------------------------------
+ERROR 1: Jest Integration Tests Fail with "relation users does not exist"
+------------------------------------------------------------------------
+
+SYMPTOM:
+Running `npx jest` (without --runInBand) causes integration tests to fail with:
+  SequelizeDatabaseError: relation "users" does not exist
+  Stack: Error at Query.run (sequelize/src/dialects/postgres/query.js:76:25)
+
+ROOT CAUSE:
+Jest by default runs each test suite in a separate worker process (parallel execution).
+When multiple integration test suites all call `sequelize.sync({ force: true })` in
+their `beforeAll`, they compete for the same database simultaneously. One suite drops
+and recreates the schema while another is mid-operation, causing the table to disappear.
+
+RESOLUTION:
+Always run integration tests with `--runInBand` flag to force sequential execution:
+  npx jest --runInBand --forceExit --no-coverage
+
+The npm test script in package.json already includes --runInBand:
+  "test": "node node_modules/jest-cli/build/index.js --runInBand --detectOpenHandles"
+
+So use `npm test` instead of `npx jest` directly when running all suites together.
+
+PREVENTION:
+1. Always use `npm test` (not `npx jest`) for the full suite.
+2. Add a Jest config key `testRunner: "sequential"` or `maxWorkers: 1` as a fallback.
+3. Consider using separate test databases per suite with environment variables.
+
+------------------------------------------------------------------------
+ERROR 2: read ECONNRESET during sequelize.sync({ force: true })
+------------------------------------------------------------------------
+
+SYMPTOM:
+Integration tests fail with:
+  read ECONNRESET
+This error appears when tests from different suites run in parallel.
+
+ROOT CAUSE:
+Same root cause as Error 1. When `sync({ force: true })` executes `DROP SCHEMA public CASCADE`
+concurrently from multiple workers, PostgreSQL drops the connection for active transactions,
+causing ECONNRESET on the other worker's open connection pool.
+
+RESOLUTION:
+Same as Error 1 — use --runInBand. Additionally:
+  1. In beforeAll, add connection retry logic or `await db.sequelize.authenticate()` check.
+  2. Ensure afterAll always calls `await db.sequelize.close()` to release pool connections.
+
+PREVENTION:
+Each test file must have:
+  afterAll(async () => {
+    await db.sequelize.close();
+  });
+Never leave database connections open across test suites.
+
+------------------------------------------------------------------------
+ERROR 3: Vector Cosine Similarity False Positive in Tests (>0.75 threshold bypass)
+------------------------------------------------------------------------
+
+SYMPTOM:
+Query test "GENERAL_NEWBIE receives fallback when searching for PERMANENT_STAFF content"
+fails. The RBAC filter correctly excludes the PERMANENT_STAFF chunk, but the test still
+fails because the GENERAL_NEWBIE chunk is returned (score above 0.75 threshold) even
+though the query vector was designed to match the PERMANENT_STAFF content.
+
+ROOT CAUSE:
+Test vectors were created with `new Array(768).fill(0.1)` and then only one element changed:
+  dummyVector[0] = 0.9  (newbie chunk)
+  dummyVector2[1] = 0.9 (staff chunk)
+
+With 768 dimensions all set to 0.1, both vectors share 766 dimensions of 0.1*0.1=0.01.
+The cosine similarity formula is:
+  dot_product / (|A| * |B|)
+  = (0.9*0.1 + 0.1*0.9 + 766*0.01) / (magnitude^2)
+  ≈ (0.09 + 0.09 + 7.66) / 8.47
+  ≈ 0.926
+
+The similarity was 0.926 — well above the 0.75 threshold — so the wrong chunk was returned.
+
+RESOLUTION:
+Use orthogonal unit vectors (all zeros except exactly one dimension = 1.0):
+  const newbieVector = new Array(768).fill(0.0);
+  newbieVector[0] = 1.0;  // unit vector along dimension 0
+
+  const staffVector = new Array(768).fill(0.0);
+  staffVector[1] = 1.0;   // unit vector along dimension 1 (orthogonal)
+
+Cosine similarity between these = (1.0*0.0 + 0.0*1.0 + 0*...) / (1 * 1) = 0.0
+This ensures the threshold filter (>= 0.75) correctly rejects mismatched pairs.
+
+PREVENTION:
+When creating test vectors for similarity search:
+  - NEVER use fill(constant) with only minor variation — shared background values dominate.
+  - USE unit vectors (only one non-zero dimension) for deterministic, orthogonal test cases.
+  - Test that cosine_similarity(queryVector, wrongChunkVector) < threshold explicitly.
+
+------------------------------------------------------------------------
+ERROR 4: Swagger YAMLSemanticError — Nested mappings not allowed in compact mappings
+------------------------------------------------------------------------
+
+SYMPTOM:
+On app startup, swagger-jsdoc throws:
+  YAMLSemanticError: Nested mappings are not allowed in compact mappings at line 47, column 22:
+      description: Too many requests (rate limit: 20 req/min)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The application crashes or the Swagger spec is not generated, causing /api-docs to fail.
+
+ROOT CAUSE:
+In JSDoc Swagger comments, descriptions are parsed as YAML. A colon followed by a space
+inside a plain (unquoted) string value is interpreted as a YAML key-value separator.
+The string `Too many requests (rate limit: 20 req/min)` contains `: 20` which YAML
+interprets as a nested mapping inside the description value.
+
+RESOLUTION:
+Wrap the description value in double quotes in the JSDoc comment:
+  WRONG:  *         description: Too many requests (rate limit: 20 req/min)
+  RIGHT:  *         description: "Too many requests — rate limit is 20 requests per minute"
+
+Or reword to avoid the colon altogether:
+  *         description: Too many requests. Limit is 20 per minute.
+
+PREVENTION:
+In Swagger JSDoc comments, always quote description strings that contain colons:
+  *         description: "Description with: colons must be quoted"
+Run `node -e "require('./src/config/swagger')"` as a pre-test lint step to catch YAML errors early.
+
+------------------------------------------------------------------------
+ERROR 5: Joi Validation Rejects Usernames with Underscores (alphanum() too strict)
+------------------------------------------------------------------------
+
+SYMPTOM:
+After adding Joi validation to auth routes, all auth integration tests fail with HTTP 400:
+  Expected: 200
+  Received: 400
+The test user is `test_user` (username contains underscore).
+Also fails for `staff_dev02`, `newbie_doc`, `admin_doc` in other test suites.
+
+ROOT CAUSE:
+The Joi schema used `.alphanum()` for username validation:
+  username: Joi.string().min(3).max(50).alphanum().required()
+
+Joi's `.alphanum()` only allows [a-zA-Z0-9] — it explicitly rejects underscores and hyphens.
+Many real-world usernames use underscores (e.g., john_doe, staff_dev).
+
+RESOLUTION:
+Replace `.alphanum()` with `.pattern(/^[a-zA-Z0-9_]+$/)`:
+  username: Joi.string().min(3).max(50)
+    .pattern(/^[a-zA-Z0-9_]+$/)
+    .required()
+    .messages({ 'string.pattern.base': '"username" must only contain alphanumeric characters and underscores' })
+
+PREVENTION:
+Before adding validation schemas, audit all existing test data to ensure the schema
+matches the actual data format in use. Common mistakes:
+  - alphanum() rejects underscores, hyphens, dots
+  - email() rejects some valid email formats
+  - Always test schemas against all existing test fixtures before deploying.
+
+------------------------------------------------------------------------
+ERROR 6: Sequelize Custom Vector Type — _stringify Not Called by Query Generator
+------------------------------------------------------------------------
+
+SYMPTOM:
+Inserting a DocumentChunk with vector_embedding array fails with PostgreSQL type errors,
+or the vector is inserted as a plain JS array string "[object Object]" instead of
+the pgvector format '[0.1,0.2,...]'.
+
+ROOT CAUSE:
+Sequelize does not natively support pgvector's `vector(768)` type. Creating a custom
+DataType by extending DataTypes.ABSTRACT requires overriding the `_stringify` method.
+However, Sequelize's query generator only calls `_stringify` if `field.type.escape = true`
+is set on the TYPE PROTOTYPE (not the instance). Assigning escape as an instance property
+does not work.
+
+RESOLUTION:
+Define the custom vector type correctly:
+  const VectorType = class extends DataTypes.ABSTRACT {
+    constructor() {
+      super();
+      this.key = 'vector(768)';
+      // These MUST be instance properties (not prototype) for _stringify to work:
+      this._stringify = function(value) {
+        return `[${value.join(',')}]`;
+      };
+      this._value = function(value) {
+        return `[${value.join(',')}]`;
+      };
+    }
+    toSql() { return this.key; }
+  };
+  // escape must be on PROTOTYPE so query generator reads it:
+  VectorType.prototype.escape = true;
+  return new VectorType();
+
+For raw SQL queries (RetrievalService), format the vector as:
+  const embeddingString = `[${queryEmbedding.join(',')}]`;
+  // Then in SQL: :embeddingString::vector  (explicit cast)
+
+PREVENTION:
+When using pgvector with Sequelize:
+  1. Always cast with ::vector in raw SQL.
+  2. Test INSERT with a simple script before wiring into the full service.
+  3. Use the pgvector npm package when available for cleaner integration.
+
+------------------------------------------------------------------------
+ERROR 7: uuid Package ESM/CJS Compatibility Error in Jest/Babel Environment
+------------------------------------------------------------------------
+
+SYMPTOM:
+Tests fail with SyntaxError:
+  Cannot use import statement in a module
+  at uuid/dist/esm-browser/v4.js
+This occurs when uuid v10+ is installed with Jest running in CommonJS mode.
+
+ROOT CAUSE:
+uuid v10 ships with ESM-only exports in some entry points. Jest (without special Babel
+transform config) runs in CommonJS mode and cannot process ESM imports from node_modules
+by default. The `exports` field in uuid v10's package.json routes Jest to the ESM bundle.
+
+RESOLUTION:
+Downgrade uuid to v9 which ships CommonJS-compatible builds:
+  npm install uuid@9
+
+Or configure Jest to transform uuid:
+  // jest.config.js
+  transformIgnorePatterns: ['node_modules/(?!(uuid)/)']
+
+PREVENTION:
+Before upgrading any dependency, check if it has shifted to ESM-only exports.
+Key risk packages: uuid, chalk, got, node-fetch, nanoid, p-limit.
+Always run `npm test` after dependency upgrades, not just `node` scripts.
+
+================================================================================
+SUMMARY OF FIXES APPLIED
+================================================================================
+
+| # | Error | Fix Applied |
+|---|-------|-------------|
+| 1 | Jest parallel DB conflict | Use --runInBand in all test runs |
+| 2 | ECONNRESET during sync | Ensure afterAll closes connections |
+| 3 | Vector similarity false positive | Use orthogonal unit vectors in tests |
+| 4 | Swagger YAML colon error | Quote description strings with colons |
+| 5 | Joi alphanum rejects underscore | Use .pattern(/^[a-zA-Z0-9_]+$/) |
+| 6 | pgvector custom type serialization | Set prototype.escape = true |
+| 7 | uuid ESM/CJS Jest conflict | Downgrade to uuid@9 |
+
+All errors are now resolved. Test suite: 15/15 PASS (6 test suites).
+================================================================================

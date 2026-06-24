@@ -1,0 +1,36 @@
+# Procurement Department Handbook
+
+## Overview
+
+ฝ่ายจัดซื้อรับผิดชอบการจัดหาอุปกรณ์ สินค้า และบริการที่จำเป็นต่อองค์กร
+
+## Purchase Request Process
+
+1. พนักงานสร้าง Purchase Request
+2. หัวหน้างานอนุมัติ
+3. Procurement ตรวจสอบ
+4. ออก Purchase Order
+5. รับสินค้าและตรวจสอบ
+
+## Vendor Selection
+
+หลักเกณฑ์การคัดเลือก Vendor
+
+* ราคา
+* คุณภาพสินค้า
+* ระยะเวลาจัดส่ง
+* ประวัติการให้บริการ
+
+## Standard Procurement Timeline
+
+* วัสดุสำนักงาน : 3 วันทำการ
+* อุปกรณ์ IT : 5 วันทำการ
+* อุปกรณ์พิเศษ : 7-14 วันทำการ
+
+## Emergency Purchase
+
+กรณีเร่งด่วนต้องได้รับการอนุมัติจาก Department Head
+
+## Contact
+
+Email: [procurement@company.local](mailto:procurement@company.local)

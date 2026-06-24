@@ -1,0 +1,96 @@
+POST-MORTEM REPORT: เหตุการณ์ฐานข้อมูลหยุดทำงาน (Database Outage)
+รหัสเหตุการณ์: INC-2024-0847
+วันที่เกิดเหตุ: 23 พฤศจิกายน 2567 เวลา 02:14 น.
+วันที่แก้ไขเสร็จ: 23 พฤศจิกายน 2567 เวลา 05:47 น.
+ระยะเวลา Downtime: 3 ชั่วโมง 33 นาที
+ความรุนแรง: P1 - Critical
+ระบบที่ได้รับผลกระทบ: ระบบ ERP หลัก, ระบบ HR, Portal พนักงาน
+
+==================================================
+SYMPTOM (อาการที่พบ)
+==================================================
+
+เวลา 02:14 น. Monitoring system แจ้งเตือน Alert ว่า Database connection
+ไม่สำเร็จ ส่งผลให้ระบบทั้งหมดที่ใช้ฐานข้อมูล PostgreSQL หลักไม่สามารถ
+ให้บริการได้ ผู้ใช้งานพบข้อความ Error:
+
+"FATAL: remaining connection slots are reserved for non-replication superuser connections"
+
+ผลกระทบต่อธุรกิจ:
+- พนักงาน 847 คนไม่สามารถเข้าระบบได้ในช่วงเช้า
+- ระบบลงเวลาทำงานล้มเหลว
+- ระบบ Payroll ที่รันอัตโนมัติตี 3 ไม่สำเร็จ
+
+==================================================
+ROOT CAUSE (สาเหตุที่แท้จริง)
+==================================================
+
+สาเหตุหลัก: Connection Pool Exhaustion
+
+ลำดับเหตุการณ์ที่นำไปสู่ปัญหา:
+1. เวลา 01:30 น. ทีม Dev Deploy feature ใหม่ของระบบ Report Generation
+2. Code ใหม่มี Bug ที่ไม่ Close Database Connection หลังการใช้งาน (Connection Leak)
+3. ภายใน 44 นาที Connection Pool ถึงขีดจำกัด max_connections = 200
+4. PostgreSQL ปฏิเสธ Connection ใหม่ทั้งหมด
+5. Application Server ทั้ง 6 เครื่องพยายาม Retry → ยิ่งทำให้ Connection หมดเร็วขึ้น
+
+Code ที่มีปัญหา (ใน report-service/src/db/reportRepository.js):
+- ใช้ pool.query() โดยไม่ได้ call pool.release() หลังจบ query
+- ในกรณี Exception จะ skip การ release ทำให้ Connection ค้างอยู่ถาวร
+
+ปัจจัยเสริม:
+- ไม่มี Connection Limit ต่อ Application (ไม่ได้ตั้ง pool.max)
+- Monitoring ไม่ได้ตั้ง Alert สำหรับ Connection Count ที่สูงผิดปกติ
+- ไม่มี Canary Deploy ทดสอบก่อน Full Release
+
+==================================================
+RESOLUTION (วิธีแก้ไข)
+==================================================
+
+การแก้ไขเฉพาะหน้า (02:58 น.):
+1. Rollback Deployment ของ Report Generation feature กลับ version ก่อนหน้า
+2. Restart PostgreSQL service เพื่อ Force close connection ที่ค้างอยู่
+3. Restart Application Server ทั้ง 6 เครื่องตามลำดับ
+4. ยืนยันระบบ Online เวลา 05:47 น.
+
+การแก้ไขถาวร (ดำเนินการสัปดาห์ถัดมา):
+1. แก้ไข Code ให้ใช้ try/finally block เพื่อ guarantee การ release connection
+2. เพิ่ม pgBouncer เป็น Connection Pooler ระดับ Database
+3. ตั้งค่า pool.max = 10 ต่อ Application instance
+4. เพิ่ม Monitoring Alert เมื่อ Active connections > 150 (75% ของ max)
+5. ทบทวน Code Review checklist ให้มีการตรวจ Database connection handling
+
+==================================================
+PREVENTION (การป้องกัน)
+==================================================
+
+มาตรการป้องกันระยะสั้น (ภายใน 2 สัปดาห์):
+- [ ] ตรวจสอบทุก Service ว่ามี Connection Leak หรือไม่
+- [ ] เพิ่ม pg_stat_activity monitoring dashboard
+- [ ] ตั้ง Alert: Connection count > 75%
+
+มาตรการป้องกันระยะยาว (ภายใน 1 เดือน):
+- [ ] Deploy pgBouncer ใน Production
+- [ ] บังคับใช้ Canary Deploy สำหรับ Database-related changes
+- [ ] เพิ่ม Integration Test สำหรับ Connection handling
+- [ ] จัดอบรม Developer เรื่อง Database Best Practices
+
+==================================================
+TIMELINE โดยละเอียด
+==================================================
+
+01:30 น. - Deploy Report Generation v2.3.1 สำเร็จ
+02:00 น. - Scheduled Report เริ่มรัน (ดึง connection มากผิดปกติ)
+02:14 น. - Monitoring Alert: DB connection failed
+02:18 น. - On-call Engineer รับแจ้ง
+02:35 น. - ระบุสาเหตุเบื้องต้นว่าเป็น Connection Exhaustion
+02:58 น. - เริ่ม Rollback
+03:15 น. - Rollback เสร็จ, Restart Database
+04:10 น. - Restart Application Servers (ทั้ง 6 เครื่อง)
+05:47 น. - ระบบกลับมาทำงานปกติ 100%
+
+==================================================
+ผู้จัดทำรายงาน: นาย สมชาย วิศวะดี (SRE Lead)
+ผู้ตรวจสอบ: นางสาว รัตนา ระบบดี (CTO)
+วันที่จัดทำ: 25 พฤศจิกายน 2567
+==================================================

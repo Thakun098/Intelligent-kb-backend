@@ -1,0 +1,198 @@
+# Marketing Department Handbook (Summary)
+
+## Overview
+
+ฝ่ายการตลาด (Marketing Department) มีหน้าที่วางแผนและดำเนินกิจกรรมทางการตลาดเพื่อสร้างการรับรู้แบรนด์ (Brand Awareness) สนับสนุนยอดขาย และรักษาความสัมพันธ์กับลูกค้า
+
+หน้าที่หลักของฝ่ายการตลาด ได้แก่
+
+* วางแผนกลยุทธ์การตลาด
+* จัดทำแคมเปญโฆษณา
+* บริหารสื่อออนไลน์และออฟไลน์
+* วิเคราะห์ข้อมูลตลาดและคู่แข่ง
+* สนับสนุนทีมขายด้วยสื่อประชาสัมพันธ์
+* ดูแลภาพลักษณ์ขององค์กร
+
+---
+
+# Team Structure
+
+## Marketing Manager
+
+รับผิดชอบการกำหนดกลยุทธ์การตลาด วางแผนงบประมาณ และติดตามผลการดำเนินงานของทีม
+
+### Responsibilities
+
+* กำหนดเป้าหมายทางการตลาด
+* อนุมัติแคมเปญการตลาด
+* บริหารงบประมาณ
+* รายงานผลต่อผู้บริหาร
+
+---
+
+## Content Marketing Specialist
+
+รับผิดชอบการสร้างเนื้อหาสำหรับสื่อประชาสัมพันธ์และช่องทางออนไลน์
+
+### Responsibilities
+
+* เขียนบทความ
+* จัดทำเนื้อหา Social Media
+* จัดทำ Email Marketing
+* ประสานงานกับทีมออกแบบ
+
+---
+
+## Digital Marketing Specialist
+
+รับผิดชอบการทำการตลาดผ่านช่องทางดิจิทัล
+
+### Responsibilities
+
+* ดูแล Google Ads
+* ดูแล Social Media Ads
+* วิเคราะห์ Website Traffic
+* ติดตาม Conversion Rate
+
+### Key Tools
+
+* Google Analytics
+* Google Ads
+* Meta Ads Manager
+
+---
+
+## Graphic Designer
+
+รับผิดชอบการออกแบบสื่อประชาสัมพันธ์
+
+### Responsibilities
+
+* ออกแบบ Banner
+* ออกแบบ Infographic
+* ออกแบบ Social Media Content
+* จัดเตรียมสื่อสำหรับแคมเปญ
+
+---
+
+# Marketing Campaign Process
+
+## Campaign Request
+
+1. หน่วยงานส่งคำขอแคมเปญการตลาด
+2. Marketing Manager ตรวจสอบความเหมาะสม
+3. กำหนดเป้าหมายและงบประมาณ
+
+---
+
+## Campaign Planning
+
+1. วิเคราะห์กลุ่มเป้าหมาย
+2. กำหนดช่องทางการสื่อสาร
+3. จัดทำแผนการดำเนินงาน
+4. จัดทำ Timeline
+
+---
+
+## Content Creation
+
+1. จัดทำเนื้อหา
+2. ออกแบบสื่อ
+3. ตรวจสอบความถูกต้อง
+4. ส่งอนุมัติ
+
+---
+
+## Campaign Launch
+
+1. เผยแพร่สื่อ
+2. เปิดใช้งานโฆษณา
+3. ติดตามผลเบื้องต้น
+
+---
+
+## Performance Review
+
+1. รวบรวมข้อมูลผลลัพธ์
+2. วิเคราะห์ KPI
+3. จัดทำรายงานสรุป
+4. เสนอแนวทางปรับปรุง
+
+---
+
+# Key Performance Indicators (KPI)
+
+ตัวอย่าง KPI ที่ใช้ประเมินผลการดำเนินงาน
+
+* Website Traffic
+* Lead Generation
+* Conversion Rate
+* Customer Engagement
+* Campaign ROI
+* Brand Awareness Score
+
+---
+
+# Communication Channels
+
+ช่องทางการสื่อสารภายในทีม
+
+* Microsoft Teams
+* Email
+* Company Intranet
+
+ช่องทางการสื่อสารกับลูกค้า
+
+* Website
+* Facebook
+* Instagram
+* LinkedIn
+* Email Marketing
+
+---
+
+# Document Approval Policy
+
+เอกสารและสื่อการตลาดทุกประเภทต้องได้รับการอนุมัติก่อนเผยแพร่
+
+Approval Flow
+
+1. Content Creator
+2. Marketing Manager
+3. Department Head (กรณีแคมเปญสำคัญ)
+
+---
+
+# Common Marketing Terms
+
+## Lead
+
+ผู้ที่แสดงความสนใจในสินค้า หรือบริการ
+
+## Conversion
+
+การที่ผู้สนใจดำเนินการตามเป้าหมายที่กำหนด เช่น สมัครสมาชิกหรือซื้อสินค้า
+
+## CTR (Click Through Rate)
+
+อัตราการคลิกเมื่อเทียบกับจำนวนการแสดงผล
+
+## ROI (Return on Investment)
+
+ผลตอบแทนจากการลงทุนทางการตลาด
+
+## Brand Awareness
+
+ระดับการรับรู้แบรนด์ของกลุ่มเป้าหมาย
+
+---
+
+# Support Contact
+
+Marketing Department
+
+Email: [marketing@company.local](mailto:marketing@company.local)
+
+Business Hours:
+Monday - Friday
+09:00 - 18:00

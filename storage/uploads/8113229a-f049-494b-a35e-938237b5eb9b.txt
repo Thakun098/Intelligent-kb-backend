@@ -1,0 +1,41 @@
+# IT Department Handbook
+
+## Overview
+
+ฝ่ายเทคโนโลยีสารสนเทศ (IT Department) รับผิดชอบการดูแลระบบคอมพิวเตอร์ เครือข่าย แอปพลิเคชัน และความปลอดภัยทางสารสนเทศขององค์กร
+
+## Services
+
+* Account Management
+* Email Support
+* Network Support
+* VPN Support
+* Hardware Support
+* Software Installation
+
+## New Employee Setup
+
+1. HR แจ้งข้อมูลพนักงานใหม่
+2. IT สร้างบัญชีผู้ใช้
+3. จัดเตรียมอุปกรณ์
+4. เปิดสิทธิ์ระบบที่เกี่ยวข้อง
+
+## Laptop Request
+
+เงื่อนไขการขอ Laptop ใหม่
+
+* ต้องได้รับอนุมัติจากหัวหน้างาน
+* ส่งคำขอผ่าน Service Portal
+* ระยะเวลาดำเนินการ 3-5 วันทำการ
+
+## Password Reset
+
+พนักงานสามารถรีเซ็ตรหัสผ่านผ่าน Self-Service Portal หรือแจ้ง Service Desk
+
+## Support Hours
+
+Monday - Friday
+
+09:00 - 18:00
+
+Email: [it-support@company.local](mailto:it-support@company.local)
