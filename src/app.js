@@ -18,9 +18,11 @@ const app = express();
 app.use(helmet());
 
 // CORS configuration (allow local dev environments)
+
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  'http://localhost:81',
   'http://localhost:5173'
 ];
 app.use(cors({
@@ -33,10 +35,12 @@ app.use(cors({
   },
   credentials: true
 }));
+app.options(/.*/, cors())
 
 // Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 
 // Rate limiter for API Query endpoint (max 20 req/min per IP/User as specified)
 const queryLimiter = rateLimit({

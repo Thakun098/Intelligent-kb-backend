@@ -13,7 +13,7 @@ class RetrievalService {
    * @param {number} threshold Cosine similarity score minimum (default: 0.75)
    * @returns {Promise<Object[]>} Matching chunk rows with score and source details
    */
-  async retrieve(userQuery, userClearance, topK = 5, threshold = 0.75) {
+  async retrieve(userQuery, userClearance, topK = 8, threshold = 0.65) {
     try {
       if (!userQuery) return [];
 
@@ -28,7 +28,8 @@ class RetrievalService {
       // Enforces hard filtering on status (ACTIVE) and required clearance ranks
       // Enforces index usage on ivfflat vector_cosine_ops
       const query = `
-        SELECT dc.chunk_id, dc.source_id, dc.page_number, dc.raw_text_content, ks.required_clearance,
+        SELECT dc.chunk_id, dc.source_id, dc.page_number, dc.raw_text_content,
+          dc.timestamp_start, dc.timestamp_end, ks.title, ks.media_type, ks.required_clearance,
           1 - (dc.vector_embedding <=> :embeddingString::vector) AS score
         FROM document_chunks dc
         JOIN knowledge_sources ks ON dc.source_id = ks.source_id
@@ -54,8 +55,24 @@ class RetrievalService {
         type: QueryTypes.SELECT
       });
 
-      // 3. Filter using similarity threshold score (>= 0.75)
-      const filteredResults = results.filter(chunk => parseFloat(chunk.score) >= threshold);
+      // Map rows to structure matching Sequelize model associations (knowledgeSource nested object)
+      const mappedResults = results.map(row => ({
+        chunk_id: row.chunk_id,
+        source_id: row.source_id,
+        page_number: row.page_number,
+        raw_text_content: row.raw_text_content,
+        timestamp_start: row.timestamp_start,
+        timestamp_end: row.timestamp_end,
+        score: row.score,
+        knowledgeSource: {
+          title: row.title,
+          media_type: row.media_type,
+          required_clearance: row.required_clearance
+        }
+      }));
+
+      // 3. Filter using similarity threshold score (>= 0.65)
+      const filteredResults = mappedResults.filter(chunk => parseFloat(chunk.score) >= threshold);
       
       logger.info(`RAG Search for "${userQuery}" yielded ${filteredResults.length}/${results.length} chunks (threshold: ${threshold})`);
       

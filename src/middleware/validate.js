@@ -41,7 +41,7 @@ const updateUserSchema = Joi.object({
 
 const uploadDocumentSchema = Joi.object({
   title: Joi.string().min(1).max(255).required().trim(),
-  content_type: Joi.string().valid(...Object.values(CONTENT_TYPES)).required(),
+  content_type: Joi.string().valid(...Object.values(CONTENT_TYPES)).optional(),
   required_clearance: Joi.string().valid(...Object.values(CLEARANCE_LEVELS)).required()
 });
 

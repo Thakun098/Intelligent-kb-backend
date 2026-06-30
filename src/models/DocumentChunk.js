@@ -44,6 +44,14 @@ module.exports = (sequelize, DataTypes) => {
         return new VectorType();
       })(),
       allowNull: true
+    },
+    timestamp_start: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+    timestamp_end: {
+      type: DataTypes.FLOAT,
+      allowNull: true
     }
   }, {
     tableName: 'document_chunks',

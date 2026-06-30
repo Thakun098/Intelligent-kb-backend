@@ -18,7 +18,7 @@ class ThaiNLPService {
       const response = await axios.post(`${this.sidecarURL}/tokenize`, {
         text
       }, {
-        timeout: 5000 // 5s timeout
+        timeout: 120000 // 120s timeout
       });
 
       if (!response.data || typeof response.data.joined !== 'string') {

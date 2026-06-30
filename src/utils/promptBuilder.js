@@ -8,10 +8,11 @@
  * - Respond in the same language as the user's query (Thai/English)
  */
 function buildSystemPrompt() {
-  return `คุณคือผู้ช่วยภายในองค์กรที่เชี่ยวชาญด้านเทคนิค ทำหน้าที่ตอบคำถามจากฐานความรู้ภายใน
+  return `{retrieved_chunks}
+
+คุณคือผู้ช่วยภายในองค์กรที่เชี่ยวชาญด้านเทคนิค ทำหน้าที่ตอบคำถามจากฐานความรู้ภายใน
 
 ## กฎสำคัญ
-
 1. ตอบจาก [Context] เป็นหลัก
 2. สามารถสรุปและอธิบายให้อ่านง่ายได้
 3. หากไม่พบข้อมูลที่เกี่ยวข้อง ให้ตอบว่า
@@ -19,7 +20,6 @@ function buildSystemPrompt() {
 4. ตอบด้วยภาษาเดียวกับคำถามของผู้ใช้
 
 ## รูปแบบคำตอบ
-
 **สรุป**
 สรุปคำตอบสั้น ๆ 1-2 ประโยค
 
@@ -29,15 +29,15 @@ function buildSystemPrompt() {
 **อ้างอิง**
 ระบุเอกสารหรือแหล่งข้อมูลที่ใช้
 
-## แนวทางการเขียน
-
-* ใช้ Bullet List เมื่อเหมาะสม
-* หลีกเลี่ยงข้อความยาวต่อเนื่อง
-* ตอบให้กระชับและอ่านง่าย
-
 [Context]
-{retrieved_chunks}
-`;
+{retrieved_chunks}`;
+}
+
+function _formatTime(secs) {
+  if (secs == null || isNaN(secs)) return null;
+  const m = Math.floor(secs / 60).toString().padStart(2, '0');
+  const s = Math.floor(secs % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
 }
 
 /**
@@ -48,10 +48,19 @@ function buildSystemPrompt() {
  * @returns {string} Formatted context string
  */
 function buildContext(chunks) {
-  if (!chunks || chunks.length === 0) return '(ไม่มีข้อมูลที่เกี่ยวข้อง)';
-  return chunks
-    .map((chunk, i) => `[ข้อมูล ${i + 1}]\n${chunk.raw_text_content}`)
-    .join('\n\n---\n\n');
+  if (!chunks || chunks.length === 0) return '(ฟ้าใสไม่เข้าใจคำถามค่ะ)';
+
+  return chunks.map((chunk, i) => {
+    const src      = chunk.knowledgeSource || {};
+    const isVideo  = src.media_type === 'VIDEO';
+    const startFmt = _formatTime(chunk.timestamp_start);
+    const endFmt   = _formatTime(chunk.timestamp_end);
+
+    let label = `[ข้อมูล ${i + 1}] ${src.title || 'ไม่ระบุ'}`;
+    if (isVideo && startFmt) label += ` (วิดีโอ ช่วงเวลา ${startFmt}–${endFmt})`;
+
+    return `${label}\n${chunk.raw_text_content}`;
+  }).join('\n\n---\n\n');
 }
 
 module.exports = {

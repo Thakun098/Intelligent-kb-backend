@@ -28,9 +28,10 @@ documentQueue.process(async (job) => {
     const tokenizedText = await ThaiNLPService.tokenize(rawText);
 
     // 3. Split tokenized text content into overlapping chunks
-    const chunkStrings = ChunkingService.chunkText(tokenizedText, 800, 150);
+    // Chunk size / overlap are driven by CHUNK_SIZE / CHUNK_OVERLAP env vars (defaults tuned for bge-m3)
+    const chunkStrings = ChunkingService.chunkText(tokenizedText);
 
-    // 4. For each chunk: generate nomic-embed-text embedding and save in pgvector database
+    // 4. For each chunk: generate bge-m3 embedding and save in pgvector database
     for (let i = 0; i < chunkStrings.length; i++) {
       const chunkText = chunkStrings[i];
       const vector = await EmbeddingService.embed(chunkText);

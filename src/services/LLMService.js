@@ -3,8 +3,9 @@ const logger = require('../utils/logger');
 
 class LLMService {
   constructor() {
-    this.baseURL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-    this.model = process.env.OLLAMA_LLM_MODEL || 'qwen2.5:3b';
+    this.apiURL = process.env.THAI_LLM_API_URL;
+    this.model = process.env.THAI_LLM_MODEL;
+    this.apiKey = process.env.THAI_LLM_API_KEY;
   }
 
   /**
@@ -15,49 +16,64 @@ class LLMService {
    * @returns {AsyncGenerator<string>} Yields tokens/pieces of text
    */
   async *streamChat(systemPrompt, context, userQuery) {
+    console.log(this.model, this.apiURL, this.apiKey)
     try {
-      const response = await axios.post(`${this.baseURL}/api/chat`, {
+      const headers = { 'Content-Type': 'application/json' };
+      if (this.apiKey) {
+        headers['Authorization'] = `Bearer ${this.apiKey}`;
+      }
+
+      const systemContent = systemPrompt.replace(/\{retrieved_chunks\}/g, context);
+
+      const payload = {
         model: this.model,
         messages: [
-          {
-            role: 'system',
-            content: systemPrompt.replace('{retrieved_chunks}', context)
-          },
-          {
-            role: 'user',
-            content: userQuery
-          }
+          { role: 'system', content: systemContent },
+          { role: 'user',   content: userQuery }
         ],
-        options: {
-          temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
-          top_k: 40,
-          top_p: 0.9,
-          num_predict: 1024,
-          repeat_penalty: 1.1
-        },
-        stream: true
-      }, {
-        responseType: 'stream',
-        timeout: 180000 // 180s — larger models (9b+) need more time
+        max_tokens: 2048,
+        temperature: 0.3,
+        stream: true  // ← request SSE streaming from the API
+      };
+
+      logger.info(`Calling LLM API: ${this.apiURL} | model: ${this.model}`);
+
+      const response = await axios.post(this.apiURL, payload, {
+        headers,
+        responseType: 'stream',   // ← Axios returns a Node.js Readable stream
+        timeout: 280000
       });
 
-      const stream = response.data;
+      // Parse SSE stream: each line is either blank or "data: <json>"
+      for await (const chunk of response.data) {
+        const raw = chunk.toString();
+        const lines = raw.split('\n');
 
-      // Helper function to read stream chunks line by line
-      for await (const chunk of stream) {
-        const lines = chunk.toString().split('\n');
         for (const line of lines) {
-          if (!line.trim()) continue;
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]') continue;
+
+          const jsonStr = trimmed.startsWith('data: ')
+            ? trimmed.slice(6)   // strip "data: " prefix
+            : trimmed;
+
           try {
-            const parsed = JSON.parse(line);
-            if (parsed.message && parsed.message.content) {
+            const parsed = JSON.parse(jsonStr);
+
+            // OpenAI / Pathumma streaming format
+            if (parsed.choices?.[0]?.delta?.content) {
+              yield parsed.choices[0].delta.content;
+            }
+            // Ollama streaming format
+            else if (parsed.message?.content) {
               yield parsed.message.content;
             }
-          } catch (jsonErr) {
-            // Ignore partial or unparseable lines in stream chunks
+          } catch (_) {
+            // skip unparseable lines (e.g. keep-alive comments)
           }
         }
       }
+
     } catch (error) {
       logger.error(`LLM Chat Streaming failed: ${error.message}`);
       throw new Error(`LLM Service Error: ${error.message}`);

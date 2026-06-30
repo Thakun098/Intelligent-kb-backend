@@ -3,14 +3,20 @@ const logger = require('../utils/logger');
 
 class EmbeddingService {
   constructor() {
-    this.baseURL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    // EMBEDDING_API_URL = full endpoint for embedding API
+    // Falls back to OLLAMA_BASE_URL + /api/embeddings for local Ollama
+    this.apiURL = process.env.EMBEDDING_API_URL || `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/embeddings`;
     this.model = process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text';
+    this.apiKey = process.env.LLM_API_KEY || process.env.OLLAMA_API_KEY || '';
   }
 
   /**
-   * Generates a 768-dimensional float embedding for a given input text
+   * Generates a float embedding for a given input text.
+   * Output dimension is controlled by OLLAMA_EMBEDDING_MODEL:
+   *   - nomic-embed-text → 768 dims
+   *   - bge-m3           → 1024 dims
    * @param {string} text The string to embed
-   * @returns {Promise<number[]>} Array of 768 float values
+   * @returns {Promise<number[]>} Array of float values (dimension depends on model)
    */
   async embed(text) {
     try {
@@ -20,10 +26,16 @@ class EmbeddingService {
 
       // Ollama embedding endpoint: POST /api/embeddings or /api/embed
       // Modern Ollama recommends /api/embed but supports /api/embeddings
-      const response = await axios.post(`${this.baseURL}/api/embeddings`, {
+      const headers = {};
+      if (this.apiKey) {
+        headers['Authorization'] = `Bearer ${this.apiKey}`;
+      }
+
+      const response = await axios.post(this.apiURL, {
         model: this.model,
         prompt: text
       }, {
+        headers,
         timeout: 120000 // 120s timeout for large models like bge-m3
       });
 

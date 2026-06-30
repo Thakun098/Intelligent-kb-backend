@@ -4,7 +4,7 @@ const AuditService = require('../services/AuditService');
 const { ChatSession, ChatMessage } = require('../models');
 const { buildSystemPrompt, buildContext } = require('../utils/promptBuilder');
 const logger = require('../utils/logger');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 // ─── Input Sanitization ─────────────────────────────────────────────────────
 /**
@@ -89,8 +89,8 @@ const query = async (req, res, next) => {
       if (sessionId) {
         const now = new Date();
         await ChatMessage.bulkCreate([
-          { message_id: uuidv4(), session_id: sessionId, role: 'user', content: sanitizedQuery, created_at: now },
-          { message_id: uuidv4(), session_id: sessionId, role: 'assistant', content: fallbackMessage, created_at: now }
+          { message_id: crypto.randomUUID(), session_id: sessionId, role: 'user', content: sanitizedQuery, created_at: now },
+          { message_id: crypto.randomUUID(), session_id: sessionId, role: 'assistant', content: fallbackMessage, created_at: now }
         ]);
         await ChatSession.update({ updated_at: now }, { where: { session_id: sessionId } });
       }
@@ -133,8 +133,8 @@ const query = async (req, res, next) => {
     if (sessionId) {
       const now = new Date();
       await ChatMessage.bulkCreate([
-        { message_id: uuidv4(), session_id: sessionId, role: 'user', content: sanitizedQuery, created_at: now },
-        { message_id: uuidv4(), session_id: sessionId, role: 'assistant', content: fullResponse, created_at: now }
+        { message_id: crypto.randomUUID(), session_id: sessionId, role: 'user', content: sanitizedQuery, created_at: now },
+        { message_id: crypto.randomUUID(), session_id: sessionId, role: 'assistant', content: fullResponse, created_at: now }
       ]);
       await ChatSession.update({ updated_at: now }, { where: { session_id: sessionId } });
     }

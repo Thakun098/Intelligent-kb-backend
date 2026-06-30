@@ -34,6 +34,14 @@ module.exports = {
         department: 'HR',
         created_at: new Date(),
         updated_at: new Date()
+      },
+      {
+        username: 'admin2',
+        password: await bcrypt.hash('1234', rounds),
+        clearance_level: CLEARANCE_LEVELS.CONFIDENTIAL_ADMIN,
+        department: 'IT',
+        created_at: new Date(),
+        updated_at: new Date()
       }
     ], {});
   },

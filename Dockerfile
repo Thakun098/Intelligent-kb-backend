@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Install system ffmpeg fallback
+RUN apk add --no-cache ffmpeg
+
 WORKDIR /app
 
 # Copy package dependencies configurations

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const request = require('supertest');
 const app = require('../../src/app');
 const db = require('../../src/models');
@@ -7,6 +8,8 @@ const LLMService = require('../../src/services/LLMService');
 
 jest.mock('../../src/services/EmbeddingService');
 jest.mock('../../src/services/LLMService');
+
+const dim = parseInt(process.env.EMBEDDING_DIMENSION || '768', 10);
 
 describe('Query RAG Integration Tests', () => {
   let staffToken;
@@ -63,10 +66,10 @@ describe('Query RAG Integration Tests', () => {
     // Use orthogonal unit vectors (all zeros except one dimension) so that
     // cosine similarity between newbieVector and staffVector is exactly 0,
     // ensuring the threshold filter (>= 0.75) reliably excludes mismatched pairs.
-    const newbieVector = new Array(768).fill(0.0);
+    const newbieVector = new Array(dim).fill(0.0);
     newbieVector[0] = 1.0; // unit vector pointing along dimension 0
 
-    const staffVector = new Array(768).fill(0.0);
+    const staffVector = new Array(dim).fill(0.0);
     staffVector[1] = 1.0; // unit vector pointing along dimension 1 (orthogonal to newbieVector)
 
     await db.DocumentChunk.create({
@@ -90,7 +93,7 @@ describe('Query RAG Integration Tests', () => {
 
   test('POST /api/query - GENERAL_NEWBIE can retrieve GENERAL_NEWBIE content', async () => {
     // Mock Embedding to return vector identical to the NEWBIE chunk (cosine similarity = 1.0)
-    const mockQueryVector = new Array(768).fill(0.0);
+    const mockQueryVector = new Array(dim).fill(0.0);
     mockQueryVector[0] = 1.0;
     EmbeddingService.embed.mockResolvedValue(mockQueryVector);
 
@@ -117,7 +120,7 @@ describe('Query RAG Integration Tests', () => {
   test('POST /api/query - GENERAL_NEWBIE receives fallback when searching for PERMANENT_STAFF content', async () => {
     // Mock Embedding to return the STAFF vector — orthogonal to the NEWBIE chunk,
     // so the only accessible chunk (NEWBIE) will score ~0.0 and be below threshold.
-    const mockQueryVector = new Array(768).fill(0.0);
+    const mockQueryVector = new Array(dim).fill(0.0);
     mockQueryVector[1] = 1.0; // points along dimension 1, orthogonal to newbieVector
     EmbeddingService.embed.mockResolvedValue(mockQueryVector);
 
@@ -133,7 +136,7 @@ describe('Query RAG Integration Tests', () => {
 
   test('POST /api/query - PERMANENT_STAFF can retrieve PERMANENT_STAFF content', async () => {
     // Mock Embedding to return vector identical to the STAFF chunk (cosine similarity = 1.0)
-    const mockQueryVector = new Array(768).fill(0.0);
+    const mockQueryVector = new Array(dim).fill(0.0);
     mockQueryVector[1] = 1.0;
     EmbeddingService.embed.mockResolvedValue(mockQueryVector);
 

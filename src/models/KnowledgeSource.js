@@ -1,4 +1,4 @@
-const { CLEARANCE_LEVELS, CONTENT_TYPES, SOURCE_STATUS } = require('../config/constants');
+const { CLEARANCE_LEVELS, CONTENT_TYPES, SOURCE_STATUS, SOURCE_MEDIA_TYPE } = require('../config/constants');
 
 module.exports = (sequelize, DataTypes) => {
   const KnowledgeSource = sequelize.define('KnowledgeSource', {
@@ -33,6 +33,19 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(100),
       allowNull: false,
       defaultValue: 'nomic-embed-text'
+    },
+    media_type: {
+      type: DataTypes.ENUM(Object.values(SOURCE_MEDIA_TYPE)),
+      allowNull: false,
+      defaultValue: SOURCE_MEDIA_TYPE.DOCUMENT
+    },
+    video_duration_seconds: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    transcript_language: {
+      type: DataTypes.STRING(10),
+      allowNull: true
     }
   }, {
     tableName: 'knowledge_sources',
