@@ -2,16 +2,17 @@ const Queue = require('bull');
 const redisConfig = require('../config/redis');
 const logger = require('../utils/logger');
 
-const videoQueue = new Queue('videoQueue', redisConfig.opts, {
+const videoQueue = new Queue('videoQueue', {
+  ...redisConfig.opts, // ดึงค่า createClient มาใส่ในนี้
   defaultJobOptions: {
-    attempts:  3,                  // retry สูงสุด 3 ครั้ง
+    attempts:  3,
     backoff: {
       type:  'exponential',
-      delay: 30000                 // 30s, 60s, 120s
+      delay: 30000
     },
-    timeout:          3600000,     // 60 นาที / job (วิดีโอยาวสุดที่รองรับ)
+    timeout:          3600000, // 60 นาทีทำงานได้จริงแล้ว
     removeOnComplete: true,
-    removeOnFail:     false        // เก็บ failed jobs ไว้ debug
+    removeOnFail:     false
   }
 });
 
