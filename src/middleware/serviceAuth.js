@@ -7,9 +7,16 @@ const serviceAuth = (req, res, next) => {
     return res.status(503).json({ error: 'Service temporarily unavailable' });
   }
 
-  const clientKey = req.headers['x-service-api-key'];
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    logger.warn(`[ServiceAuth] Unauthorized service access attempt (missing or invalid Bearer format) from IP: ${req.ip}`);
+    return res.status(401).json({ error: 'Invalid or missing API key' });
+  }
+
+  // Extract the token
+  const clientKey = authHeader.split(' ')[1];
   if (!clientKey || clientKey !== key) {
-    logger.warn(`[ServiceAuth] Unauthorized service access attempt from IP: ${req.ip}`);
+    logger.warn(`[ServiceAuth] Unauthorized service access attempt (invalid token) from IP: ${req.ip}`);
     return res.status(401).json({ error: 'Invalid or missing API key' });
   }
 

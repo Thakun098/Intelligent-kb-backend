@@ -31,7 +31,7 @@ describe('Video Process API Integration Tests', () => {
 
     const res = await request(app)
       .post('/api/videos/process')
-      .set('x-service-api-key', 'test-service-key')
+      .set('Authorization', 'Bearer test-service-key')
       .send(payload);
 
     expect(res.statusCode).toEqual(202);
@@ -71,7 +71,7 @@ describe('Video Process API Integration Tests', () => {
 
     const res = await request(app)
       .post('/api/videos/process')
-      .set('x-service-api-key', 'wrong-key')
+      .set('Authorization', 'Bearer wrong-key')
       .send(payload);
 
     expect(res.statusCode).toEqual(401);
@@ -86,7 +86,7 @@ describe('Video Process API Integration Tests', () => {
 
     const res = await request(app)
       .post('/api/videos/process')
-      .set('x-service-api-key', 'test-service-key')
+       .set('Authorization', 'Bearer test-service-key')
       .send(payload);
 
     expect(res.statusCode).toEqual(400);
@@ -103,7 +103,7 @@ describe('Video Process API Integration Tests', () => {
 
     const res = await request(app)
       .post('/api/videos/process')
-      .set('x-service-api-key', 'test-service-key')
+      .set('Authorization', 'Bearer test-service-key')
       .send(payload);
 
     expect(res.statusCode).toEqual(400);
@@ -120,7 +120,7 @@ describe('Video Process API Integration Tests', () => {
 
     const res = await request(app)
       .post('/api/videos/process')
-      .set('x-service-api-key', 'test-service-key')
+      .set('Authorization', 'Bearer test-service-key')
       .send(payload);
 
     expect(res.statusCode).toEqual(503);

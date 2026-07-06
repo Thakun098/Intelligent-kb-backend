@@ -18,7 +18,7 @@ const { validate, schemas } = require('../middleware/validate');
  *     summary: Request asynchronous video processing from internal services
  *     description: |
  *       Triggers the video processing pipeline by passing a video URL and metadata.
- *       Only accessible by internal services using the X-Service-Api-Key header.
+ *       Only accessible by internal services using the Authorization Bearer Token.
  *     tags: [Videos]
  *     security:
  *       - serviceApiKey: []
