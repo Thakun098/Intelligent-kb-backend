@@ -17,6 +17,22 @@ class ChunkingService {
    *   5. If a single paragraph exceeds `size` by itself, fall back to
    *      character-level splitting with word-boundary detection.
    *
+   * Heading levels:
+   *   ##  → Document-level heading (e.g. "## ชื่อ Doc หลัก").
+   *         Tracked separately and NEVER flushed as its own chunk.
+   *         Re-injected into every chunk until a new "===" or a new "##" appears.
+   *   ### → Section-level heading (e.g. "### Title ย่อย").
+   *         Forces a flush of whatever chunk was being built BEFORE this
+   *         heading is processed, so content from the previous section can
+   *         never bleed into the next section's heading (and vice versa).
+   *
+   * Boundaries:
+   *   ===  → Hard document boundary. Flushes the current chunk WITHOUT
+   *          carrying overlap forward, and resets both doc-level and
+   *          section-level headings.
+   *   ---  → Soft section boundary. Flushes the current chunk and DOES
+   *          carry overlap forward (still within the same document).
+   *
    * Model context limits (for reference):
    *   bge-m3          → 8192 tokens ≈ safe up to ~2000 chars Thai text
    *   nomic-embed-text → 512 tokens ≈ safe up to ~600 chars Thai text
@@ -41,53 +57,109 @@ class ChunkingService {
       return [normalized];
     }
 
-    // ── Step 2: Split into paragraphs by double newline ──
-    const paragraphs = normalized
-      .split(/\n\n+/)
+    // ── Step 2: Split into paragraphs ──
+    // Paragraphs are separated by \n\n as usual, but structural markers
+    // (===, ---, ##/### headings) are also treated as hard split points
+    // even when they're only separated by a single \n. This matters because
+    // authors commonly write:
+    //   ## Title
+    //   ---
+    //   ### Sub Title
+    //   detail...
+    // with single newlines between the marker lines, which would otherwise
+    // collapse into one giant paragraph and bypass all boundary handling.
+    const MARKER_RE = /^(={3,}|-{3,}|#{1,3}\s.*)$/;
+    const rawParagraphs = normalized.split(/\n\n+/);
+    const paragraphs = [];
+    for (const block of rawParagraphs) {
+      const lines = block.split('\n');
+      let buf = [];
+      const flushBuf = () => {
+        if (buf.length) {
+          const joined = buf.join('\n').trim();
+          if (joined) paragraphs.push(joined);
+          buf = [];
+        }
+      };
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (MARKER_RE.test(trimmedLine)) {
+          flushBuf();          // close out whatever text was accumulating
+          paragraphs.push(trimmedLine); // marker becomes its own paragraph
+        } else {
+          buf.push(line);
+        }
+      }
+      flushBuf();
+    }
+    const cleanParagraphs = paragraphs
       .map(p => p.trim())
       .filter(p => p.length > 0);
 
     const chunks = [];
     let currentChunk = '';
-    let currentHeading = ''; // track ## heading ปัจจุบัน
+    let docHeading = '';   // tracks current "## " document-level heading
+    let secHeading = '';   // tracks current "### " section-level heading (rarely buffered, mostly transient)
 
-    for (const para of paragraphs) {
+    // Helper: the heading block that should prefix any new chunk right now
+    const headingBlock = () => {
+      const parts = [];
+      if (docHeading) parts.push(docHeading);
+      if (secHeading) parts.push(secHeading);
+      return parts.join('\n');
+    };
 
-      // ── Hard boundary: === → flush สะอาด ไม่ carry overlap ──
-      if (para === '===') {
+    for (const para of cleanParagraphs) {
+
+      // ── Hard boundary: === → flush clean, no overlap carry, reset all headings ──
+      if (/^={3,}$/.test(para)) {
         if (currentChunk.trim()) {
           chunks.push(currentChunk.trim());
-          currentChunk = '';      // reset สะอาด ข้าม document boundary
+          currentChunk = '';
         }
-        currentHeading = '';      // reset heading ด้วย
+        docHeading = '';
+        secHeading = '';
         continue;
       }
 
-      // ── Soft boundary: --- → flush แต่ carry overlap ──
-      if (para === '---') {
+      // ── Soft boundary: --- → flush but carry overlap forward ──
+      if (/^-{3,}$/.test(para)) {
         if (currentChunk.trim()) {
           chunks.push(currentChunk.trim());
           const overlapText = currentChunk.slice(-overlap).trim();
-          currentChunk = overlapText; // carry overlap ข้าม section ได้
+          currentChunk = overlapText; // carry overlap within the same document
         }
         continue;
       }
 
-      // ── Heading capture: ## หรือ ### → เก็บไว้ inject ──
-      if (/^#{1,3}\s/.test(para)) {
-        currentHeading = para;
-        // inject heading เข้า chunk ถ้า currentChunk ว่างอยู่
-        if (!currentChunk) {
-          currentChunk = currentHeading;
-          currentHeading = '';
+      // ── ## = document-level heading: never becomes its own chunk ──
+      if (/^##\s/.test(para) && !/^###\s/.test(para)) {
+        // A new document-level heading implicitly starts a new top-level
+        // unit — flush whatever was pending under the OLD doc heading first.
+        if (currentChunk.trim()) {
+          chunks.push(currentChunk.trim());
+          currentChunk = '';
         }
+        docHeading = para;
+        secHeading = '';
+        continue; // do not inject into currentChunk by itself
+      }
+
+      // ── ### = section-level heading: force-flush previous section first ──
+      if (/^###\s/.test(para)) {
+        if (currentChunk.trim()) {
+          chunks.push(currentChunk.trim());
+          currentChunk = '';
+        }
+        secHeading = para;
+        currentChunk = headingBlock(); // inject doc heading + this section heading together
         continue;
       }
 
-      // ── inject heading เข้า chunk ใหม่ที่เพิ่งเริ่ม ──
-      if (currentHeading && !currentChunk) {
-        currentChunk = currentHeading;
-        currentHeading = '';
+      // ── Regular paragraph: ensure the chunk we're building has its heading context ──
+      if (!currentChunk) {
+        const hb = headingBlock();
+        if (hb) currentChunk = hb;
       }
 
       const separator = currentChunk ? '\n\n' : '';
@@ -105,11 +177,9 @@ class ChunkingService {
           // Carry the last `overlap` chars of the current chunk as context
           const overlapText = currentChunk.slice(-overlap).trim();
 
-          // ── inject heading ถ้ามี ไว้หัว chunk ใหม่ ──
-          const headingPrefix = currentHeading
-            ? currentHeading + '\n\n'
-            : '';
-          currentHeading = '';
+          // Re-inject heading context so the NEW chunk still knows where it lives
+          const hb = headingBlock();
+          const headingPrefix = hb ? hb + '\n\n' : '';
 
           const nextCandidate = overlapText
             ? overlapText + '\n\n' + headingPrefix + para
@@ -118,8 +188,12 @@ class ChunkingService {
           if (nextCandidate.length <= size) {
             currentChunk = nextCandidate;
           } else {
-            // Even with just overlap + paragraph it overflows → fall back
-            const subChunks = this._splitByChars(para, size, overlap);
+            // Even with just overlap + heading + paragraph it overflows → fall back.
+            // Prefix the heading onto the paragraph BEFORE char-splitting so that
+            // every resulting sub-chunk (including pure-overflow pieces) still
+            // carries doc/section context instead of being orphaned.
+            const paraWithHeading = hb ? hb + '\n\n' + para : para;
+            const subChunks = this._splitByChars(paraWithHeading, size, overlap);
             chunks.push(...subChunks.slice(0, -1));
             currentChunk = subChunks[subChunks.length - 1] || '';
           }

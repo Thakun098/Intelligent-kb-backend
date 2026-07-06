@@ -12,6 +12,7 @@ const fs         = require('fs');
 const path       = require('path');
 const os         = require('os');
 const logger     = require('../utils/logger');
+const FrameExtractionService = require('./FrameExtractionService');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -61,11 +62,14 @@ class VideoService {
         totalDuration += result.duration || 0;
       }
 
+      const keyframes = await FrameExtractionService.extractKeyframes(videoPath);
+
       return {
         fullText:      textParts.join(' ').replace(/\s+/g, ' ').trim(),
         segments:      allSegments,
         language,
-        totalDuration
+        totalDuration,
+        keyframes
       };
 
     } finally {

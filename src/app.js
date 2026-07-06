@@ -35,7 +35,7 @@ app.use(cors({
   },
   credentials: true
 }));
-app.options(/.*/, cors())
+app.options(/.*/, cors(corsOptions))
 
 // Body parsers
 app.use(express.json());

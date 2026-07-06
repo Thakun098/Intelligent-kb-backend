@@ -45,6 +45,10 @@ module.exports = (sequelize, DataTypes) => {
       })(),
       allowNull: true
     },
+    frame_caption: {
+      type:      DataTypes.TEXT,
+      allowNull: true
+    },
     timestamp_start: {
       type: DataTypes.FLOAT,
       allowNull: true

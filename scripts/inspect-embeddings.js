@@ -43,6 +43,11 @@ async function run() {
           console.log(`Time Range: ${formatTime(c.timestamp_start)} - ${formatTime(c.timestamp_end)}`);
         }
         console.log(`Text Preview: "${c.raw_text_content.slice(0, 150).replace(/\n/g, ' ')}..."`);
+        if (c.frame_caption) {
+          console.log(`Frame Caption: "${c.frame_caption.slice(0, 150).replace(/\n/g, ' ')}..."`);
+        } else {
+          console.log(`Frame Caption: NULL`);
+        }
         
         // Show embedding details (first 5 dimensions and total dimensions)
         const vector = c.vector_embedding; // array/string representation depending on sequelize PG parser

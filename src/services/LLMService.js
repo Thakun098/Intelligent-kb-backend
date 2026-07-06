@@ -16,7 +16,6 @@ class LLMService {
    * @returns {AsyncGenerator<string>} Yields tokens/pieces of text
    */
   async *streamChat(systemPrompt, context, userQuery) {
-    console.log(this.model, this.apiURL, this.apiKey)
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (this.apiKey) {

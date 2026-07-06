@@ -12,7 +12,16 @@ const VIDEO_MIME_TYPES = [
 const uploadDocument = async (req, res, next) => {
   try {
     const file = req.file;
-    const { title, content_type, required_clearance } = req.body;
+    const { title, content_type, required_clearance, enable_frame_captioning } = req.body;
+    // per-upload captioning toggle: 'true'/'false' string (from multipart form)
+    // falls back to global env ENABLE_FRAME_CAPTIONING if not provided
+    const enableCaptioningStr = enable_frame_captioning;
+    const enableCaptioning =
+      enableCaptioningStr === 'false'
+        ? false
+        : enableCaptioningStr === 'true'
+        ? true
+        : process.env.ENABLE_FRAME_CAPTIONING !== 'false'; // env default
 
     if (!file) {
       return res.status(400).json({ error: 'Please upload a file' });
@@ -42,8 +51,12 @@ const uploadDocument = async (req, res, next) => {
     });
 
     if (isVideo) {
-      await videoQueue.add({ sourceId: source.source_id, filePath: file.path });
-      logger.info(`[Upload] Video queued: "${title}" (sourceId=${source.source_id})`);
+      await videoQueue.add({
+        sourceId: source.source_id,
+        filePath: file.path,
+        enableCaptioning,
+      });
+      logger.info(`[Upload] Video queued: "${title}" (sourceId=${source.source_id}, captioning=${enableCaptioning})`);
     } else {
       await documentQueue.add({
         sourceId: source.source_id,
