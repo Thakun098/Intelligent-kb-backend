@@ -21,6 +21,11 @@ const ChunkingService  = require('../services/ChunkingService');
 const EmbeddingService = require('../services/EmbeddingService');
 const { KnowledgeSource, DocumentChunk, sequelize } = require('../models');
 const logger           = require('../utils/logger');
+const http             = require('http');
+const https            = require('https');
+const os               = require('os');
+const path             = require('path');
+const crypto           = require('crypto');
 
 // ─── Helper: หา timestamp สำหรับ chunk จาก Whisper segments ────────────────
 function findTimestampForChunk(chunkText, segments) {
@@ -73,27 +78,109 @@ function _formatTime(secs) {
   return `${m}:${s}`;
 }
 
+// Helper to extract file extension from URL or content-type
+function getExtension(url, contentType) {
+  try {
+    const parsedUrl = new URL(url);
+    const pathname = parsedUrl.pathname;
+    const ext = path.extname(pathname);
+    if (ext && ext.length > 1 && ext.length < 6) {
+      return ext;
+    }
+  } catch (_) {}
+
+  if (contentType) {
+    const mime = contentType.toLowerCase().split(';')[0].trim();
+    const mimeMap = {
+      'video/mp4': '.mp4',
+      'video/quicktime': '.mov',
+      'video/webm': '.webm',
+      'video/x-msvideo': '.avi',
+      'audio/mpeg': '.mp3',
+      'audio/mp3': '.mp3',
+      'audio/wav': '.wav',
+      'audio/x-wav': '.wav',
+      'audio/x-m4a': '.m4a',
+      'audio/m4a': '.m4a',
+      'audio/x-aac': '.aac',
+      'audio/aac': '.aac'
+    };
+    if (mimeMap[mime]) return mimeMap[mime];
+  }
+
+  return '.mp4'; // fallback default
+}
+
+// Helper to download video from URL to temporary location
+function downloadVideo(url) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    const req = protocol.get(url, (res) => {
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        return reject(new Error(`Failed to download video. Status Code: ${res.statusCode}`));
+      }
+
+      const contentType = res.headers['content-type'] || '';
+      if (!contentType.startsWith('video/') && !contentType.startsWith('audio/')) {
+        return reject(new Error(`Invalid content type: ${contentType}. Must be video/* or audio/*.`));
+      }
+
+      const ext = getExtension(url, contentType);
+      const tmpVideoPath = path.join(os.tmpdir(), `kb_video_${crypto.randomUUID()}${ext}`);
+      const fileStream = fs.createWriteStream(tmpVideoPath);
+
+      res.pipe(fileStream);
+
+      fileStream.on('finish', () => {
+        fileStream.close();
+        resolve(tmpVideoPath);
+      });
+
+      fileStream.on('error', (err) => {
+        try { if (fs.existsSync(tmpVideoPath)) fs.unlinkSync(tmpVideoPath); } catch (_) {}
+        reject(err);
+      });
+    });
+
+    req.setTimeout(300000, () => { // 5 minutes timeout
+      req.destroy();
+      reject(new Error('Download timed out (5 minutes limit exceeded)'));
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
 // ─── Worker (concurrency=1 → serial) ─────────────────────────────────────────
 videoQueue.process(1, async (job) => {
-  const { sourceId, filePath, enableCaptioning: jobEnableCaptioning } = job.data;
+  const { sourceId, videoUrl, enableCaptioning: jobEnableCaptioning, sourceService } = job.data;
   // per-upload override: job.data.enableCaptioning takes precedence over global env
   const enableCaptioning =
     typeof jobEnableCaptioning === 'boolean'
       ? jobEnableCaptioning
       : process.env.ENABLE_FRAME_CAPTIONING !== 'false';
-  logger.info(`[VideoWorker] Job ${job.id} started — sourceId=${sourceId}, captioning=${enableCaptioning}`);
+  logger.info(`[VideoWorker] Job ${job.id} started — sourceId=${sourceId}, videoUrl=${videoUrl}, sourceService=${sourceService || 'unknown'}, captioning=${enableCaptioning}`);
 
   const source = await KnowledgeSource.findByPk(sourceId);
   if (!source) throw new Error(`KnowledgeSource not found: ${sourceId}`);
 
+  let tmpVideoPath = null;
   const transaction = await sequelize.transaction();
   const capturedFramePaths = []; // track สำหรับ cleanup
 
   try {
+    // ── Step 0: Download Video ─────────────────────────────────────── 5%
+    await job.progress(5);
+    logger.info(`[VideoWorker] Downloading video from URL: ${videoUrl}`);
+    tmpVideoPath = await downloadVideo(videoUrl);
+    logger.info(`[VideoWorker] Video downloaded successfully to: ${tmpVideoPath}`);
+
     // ── Step 1: STT (Whisper) ──────────────────────────────────────── 10%
     await job.progress(10);
     const { fullText, segments, language, totalDuration, keyframes } =
-      await VideoService.processVideo(filePath);
+      await VideoService.processVideo(tmpVideoPath);
 
     if (!fullText?.trim()) throw new Error('Whisper returned empty transcript');
 
@@ -205,6 +292,15 @@ videoQueue.process(1, async (job) => {
       await source.save();
     } catch (_) {}
     throw error;
+  } finally {
+    if (tmpVideoPath && fs.existsSync(tmpVideoPath)) {
+      try {
+        fs.unlinkSync(tmpVideoPath);
+        logger.info(`[VideoWorker] Cleaned up tmp file: ${tmpVideoPath}`);
+      } catch (err) {
+        logger.error(`[VideoWorker] Failed to delete tmp file ${tmpVideoPath}: ${err.message}`);
+      }
+    }
   }
 });
 

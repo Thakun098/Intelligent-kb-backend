@@ -87,4 +87,17 @@ describe('Document Upload API Integration Tests', () => {
       fs.unlinkSync(doc.file_path);
     }
   });
+
+  test('POST /api/documents/upload - Rejects video files (Multer filter)', async () => {
+    const res = await request(app)
+      .post('/api/documents/upload')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', testFilePath, { filename: 'test.mp4', contentType: 'video/mp4' })
+      .field('title', 'Video attempt')
+      .field('content_type', 'VIDEO_TRANSCRIPT')
+      .field('required_clearance', 'GENERAL_NEWBIE');
+
+    expect(res.statusCode).toEqual(500);
+    expect(res.body.error).toEqual('Internal Server Error');
+  });
 });

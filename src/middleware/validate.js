@@ -41,9 +41,17 @@ const updateUserSchema = Joi.object({
 
 const uploadDocumentSchema = Joi.object({
   title: Joi.string().min(1).max(255).required().trim(),
-  content_type: Joi.string().valid(...Object.values(CONTENT_TYPES)).optional(),
+  content_type: Joi.string().valid(...Object.values(CONTENT_TYPES)).required(),
+  required_clearance: Joi.string().valid(...Object.values(CLEARANCE_LEVELS)).required()
+});
+
+const processVideoSchema = Joi.object({
+  videoUrl: Joi.string().uri({ scheme: ['http', 'https'] }).max(2048).required(),
+  title: Joi.string().min(1).max(255).required().trim(),
   required_clearance: Joi.string().valid(...Object.values(CLEARANCE_LEVELS)).required(),
-  enable_frame_captioning: Joi.string().valid('true', 'false').optional()
+  content_type: Joi.string().valid(...Object.values(CONTENT_TYPES)).default('VIDEO_TRANSCRIPT'),
+  enable_frame_captioning: Joi.boolean().default(true),
+  source_service: Joi.string().max(100).optional()
 });
 
 const updateDocumentSchema = Joi.object({
@@ -82,6 +90,7 @@ module.exports = {
     createUserSchema,
     updateUserSchema,
     uploadDocumentSchema,
-    updateDocumentSchema
+    updateDocumentSchema,
+    processVideoSchema
   }
 };

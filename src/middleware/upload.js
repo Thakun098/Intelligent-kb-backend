@@ -22,27 +22,13 @@ const fileFilter = (req, file, cb) => {
     // Documents
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
-    'text/plain',
-    // Videos
-    'video/mp4',
-    'video/quicktime',  // .mov
-    'video/webm',
-    'video/x-msvideo',  // .avi
-    // Audio
-    'audio/mpeg',
-    'audio/mp3',
-    'audio/wav',
-    'audio/x-wav',
-    'audio/x-m4a',
-    'audio/m4a',
-    'audio/x-aac',
-    'audio/aac'
+    'text/plain'
   ];
 
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only PDF, DOCX, TXT, video (MP4, MOV, WEBM, AVI) and audio (MP3, WAV, M4A) files are allowed.'), false);
+    cb(new Error('Invalid file type. Only PDF, DOCX, and TXT files are allowed.'), false);
   }
 };
 

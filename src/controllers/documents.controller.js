@@ -1,78 +1,43 @@
 const documentQueue = require('../queues/documentQueue');
-const videoQueue = require('../queues/videoQueue');
 const { KnowledgeSource } = require('../models');
 const logger = require('../utils/logger');
 const fs = require('fs');
 
-const VIDEO_MIME_TYPES = [
-  'video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo',
-  'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/x-m4a', 'audio/m4a', 'audio/x-aac', 'audio/aac'
-];
-
 const uploadDocument = async (req, res, next) => {
   try {
     const file = req.file;
-    const { title, content_type, required_clearance, enable_frame_captioning } = req.body;
-    // per-upload captioning toggle: 'true'/'false' string (from multipart form)
-    // falls back to global env ENABLE_FRAME_CAPTIONING if not provided
-    const enableCaptioningStr = enable_frame_captioning;
-    const enableCaptioning =
-      enableCaptioningStr === 'false'
-        ? false
-        : enableCaptioningStr === 'true'
-        ? true
-        : process.env.ENABLE_FRAME_CAPTIONING !== 'false'; // env default
+    const { title, content_type, required_clearance } = req.body;
 
     if (!file) {
       return res.status(400).json({ error: 'Please upload a file' });
     }
-    if (!title || !required_clearance) {
+    if (!title || !required_clearance || !content_type) {
       fs.unlinkSync(file.path);
-      return res.status(400).json({ error: 'title and required_clearance are required' });
-    }
-
-    const isVideo = VIDEO_MIME_TYPES.includes(file.mimetype);
-    const finalType = isVideo ? 'VIDEO_TRANSCRIPT' : content_type;
-    const mediaType = isVideo ? 'VIDEO' : 'DOCUMENT';
-
-    if (!isVideo && !content_type) {
-      fs.unlinkSync(file.path);
-      return res.status(400).json({ error: 'content_type is required for documents' });
+      return res.status(400).json({ error: 'title, required_clearance, and content_type are required' });
     }
 
     // Register metadata record in database
     const source = await KnowledgeSource.create({
       title,
-      content_type: finalType,
+      content_type,
       file_path: file.path,
       required_clearance,
       status: 'PENDING_PROCESSING',
-      media_type: mediaType
+      media_type: 'DOCUMENT'
     });
 
-    if (isVideo) {
-      await videoQueue.add({
-        sourceId: source.source_id,
-        filePath: file.path,
-        enableCaptioning,
-      });
-      logger.info(`[Upload] Video queued: "${title}" (sourceId=${source.source_id}, captioning=${enableCaptioning})`);
-    } else {
-      await documentQueue.add({
-        sourceId: source.source_id,
-        filePath: file.path,
-        mimeType: file.mimetype,
-        contentType: content_type
-      });
-      logger.info(`[Upload] Document queued: "${title}" (sourceId=${source.source_id})`);
-    }
+    await documentQueue.add({
+      sourceId: source.source_id,
+      filePath: file.path,
+      mimeType: file.mimetype,
+      contentType: content_type
+    });
+    logger.info(`[Upload] Document queued: "${title}" (sourceId=${source.source_id})`);
 
     return res.status(202).json({
-      message: isVideo
-        ? 'Video uploaded. Transcription queued — may take 5–15 min for 30-min video.'
-        : 'Document uploaded successfully. Processing started in background.',
+      message: 'Document uploaded successfully. Processing started in background.',
       sourceId: source.source_id,
-      mediaType,
+      mediaType: 'DOCUMENT',
       status: 'PENDING_PROCESSING'
     });
   } catch (error) {

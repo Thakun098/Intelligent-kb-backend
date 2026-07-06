@@ -11,6 +11,7 @@ const documentsRoutes = require('./routes/documents.routes');
 const usersRoutes = require('./routes/users.routes');
 const auditRoutes = require('./routes/audit.routes');
 const chatRoutes = require('./routes/chat.routes');
+const videoRoutes = require('./routes/video.routes');
 
 const app = express();
 
@@ -25,7 +26,7 @@ const allowedOrigins = [
   'http://localhost:81',
   'http://localhost:5173'
 ];
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -34,7 +35,8 @@ app.use(cors({
     }
   },
   credentials: true
-}));
+};
+app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions))
 
 // Body parsers
@@ -58,6 +60,7 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/videos', videoRoutes);
 
 // API Documentation (Swagger UI)
 // Uses contentSecurityPolicy: false to allow Swagger UI JS/CSS to load

@@ -39,6 +39,12 @@ Use the \`/api/auth/login\` endpoint to obtain a JWT access token, then include 
           scheme: 'bearer',
           bearerFormat: 'JWT',
           description: 'JWT access token obtained from /api/auth/login'
+        },
+        serviceApiKey: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-Service-Api-Key',
+          description: 'Internal Service API Key'
         }
       },
       schemas: {
